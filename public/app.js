@@ -1483,13 +1483,15 @@ function renderCardHtml(f) {
         previewMedia = `<div class="card-media-wrap link-media"><img src="${esc(linkThumb)}" alt="" loading="lazy" onerror="this.parentNode.style.display='none'" /></div>`;
       }
     }
+    const titleVal = String(f.name || f.url || "").trim();
+    const isUrlTitle = /^https?:\/\//i.test(titleVal);
     return `<div class="card ${sel} ${isYt ? "card-yt" : ""} ${isShorts ? "card-yt-shorts" : ""}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
       ${previewMedia}
       <div class="card-body">
         <div class="link-domain-row">${icon(isYt ? "play" : "globe", { size: 12 })}<span>${esc(f.domain || (isShorts ? "YouTube Shorts" : (isYt ? "youtube.com" : "link")))}</span></div>
-        <div class="card-title">${esc(f.name || f.url)}</div>
+        <div class="card-title ${isUrlTitle ? "is-url" : ""}" title="${esc(titleVal)}">${esc(titleVal)}</div>
         ${f.previewDescription ? `<div class="link-desc">${esc(f.previewDescription)}</div>` : ""}
         <div class="card-meta"><span>${fmtDate(f.date)}</span>${senderChip}</div>
       </div>

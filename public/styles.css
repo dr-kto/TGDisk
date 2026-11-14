@@ -708,12 +708,14 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   flex: none;
 }
 
-/* On mobile when date sort collapsed, only show circular button + Date zoom + view toggle */
+/* Sort & Zoom controls:
+   Desktop: show both sort pills and zoom pills.
+   Mobile: zoom pill is shown only when sort is collapsed to save space */
 .sort-pill-desktop { display: inline-flex; }
 .sort-pill-mobile-btn { display: none; }
-/* Zoom pill: hidden by default, visible only when sort is collapsed (mobile icon mode) */
-.zoom-pill { display: none; }
+.zoom-pill { display: inline-flex; }
 @media (max-width: 639px) {
+  .zoom-pill { display: none; }
   .sort-group.collapsed .sort-pill-desktop { display: none; }
   .sort-group.collapsed .sort-pill-mobile-btn { display: inline-flex; }
   .sort-group.collapsed ~ .zoom-pill { display: inline-flex; }
@@ -833,11 +835,16 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   flex: none;
   width: 240px;
   max-height: 480px;
+  display: flex;
+  flex-direction: column;
 }
-/* Cap image height so image cards don't blow out the container */
+/* Cap image & shorts height so media cards don't blow out the container and crowd out card body */
 .date-horiz-scroll .card-media-wrap img {
   max-height: 300px;
   object-fit: cover;
+}
+.date-horiz-scroll .card-media-wrap.yt-thumb-wrap.is-shorts {
+  max-height: 310px;
 }
 @media (max-width: 639px) {
   .date-horiz-scroll {
@@ -850,6 +857,7 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   }
   .date-horiz-scroll > .card { width: 200px; max-height: 420px; }
   .date-horiz-scroll .card-media-wrap img { max-height: 240px; }
+  .date-horiz-scroll .card-media-wrap.yt-thumb-wrap.is-shorts { max-height: 250px; }
 }
 
 /* ===================== Cards ===================== */
@@ -861,6 +869,8 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   cursor: pointer;
   position: relative;
   transition: box-shadow 0.16s, border-color 0.16s, transform 0.16s;
+  display: flex;
+  flex-direction: column;
 }
 .card:hover {
   border-color: var(--border-2);
@@ -998,11 +1008,17 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   }
 }
 
-.card-body { padding: 11px 13px 12px; }
+.card-body { padding: 11px 13px 12px; flex-shrink: 0; min-width: 0; }
 .card-title {
   font-weight: 600; font-size: 13px; line-height: 1.35;
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; word-break: break-word;
+  overflow: hidden; text-overflow: ellipsis; word-break: break-word; overflow-wrap: anywhere;
+}
+.card-title.is-url {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card-meta {
   font-size: 11px; color: var(--muted); margin-top: 4px;
@@ -1030,10 +1046,15 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
 .link-domain-row {
   display: flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 600; color: var(--ft-link); margin-bottom: 4px;
+  min-width: 0;
+}
+.link-domain-row span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .link-desc {
   font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; text-overflow: ellipsis; word-break: break-word;
 }
 
 /* Note Card */
@@ -1064,6 +1085,7 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
   line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1129,7 +1151,7 @@ label { color: var(--muted); font-size: 12px; font-weight: 600; display: inline-
 .list-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .list-main { flex: 1; min-width: 0; }
 .list-nm { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list-sub { font-size: 11.5px; color: var(--muted); }
+.list-sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-actions { display: flex; align-items: center; gap: 4px; flex: none; }
 
 .card-sender-tag,
