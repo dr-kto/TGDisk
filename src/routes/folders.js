@@ -73,12 +73,13 @@ folders.get("/chats", requireAppAuth, requireAccount, async (req, res, next) => 
 });
 
 folders.post("/folders/import", requireAppAuth, requireAccount, (req, res) => {
-  const { channelId, accessHash, title, type } = req.body || {};
+  const { channelId, accessHash, title, type, peerKind } = req.body || {};
   if (!channelId || accessHash == null || !title) {
     return res.status(400).json({ error: "channelId, accessHash, title required" });
   }
+  const isBasicChat = peerKind === "chat" || type === "chat";
   const peerObj =
-    type === "chat"
+    isBasicChat
       ? { kind: "chat", chatId: String(channelId) }
       : { kind: "channel", channelId: String(channelId), accessHash: String(accessHash) };
   const peerJson = JSON.stringify(peerObj);
@@ -87,13 +88,14 @@ folders.post("/folders/import", requireAppAuth, requireAccount, (req, res) => {
     return res.json({ ok: true, id: existing.id, title: existing.title });
   }
   const id = uid();
+  const folderKind = (type === "group" || isBasicChat) ? "group" : "channel";
   stmt.addFolder.run({
     id,
     account_id: req.accountId,
     parent_id: null,
     title: String(title),
     peer_json: peerJson,
-    kind: "channel",
+    kind: folderKind,
     created_at: Date.now(),
   });
   res.json({ ok: true, id, title: String(title) });

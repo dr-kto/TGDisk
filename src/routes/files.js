@@ -75,7 +75,11 @@ async function loadFolder(req, { allowAll = false } = {}) {
   const folderId = req.query.folder || req.headers["x-folder"];
   if (!folderId) throw new HttpError(400, "Missing folder");
   if (folderId === "all") {
-    if (!allowAll) throw new HttpError(400, "Specify a folder for this operation");
+    if (!allowAll) {
+      const saved = stmt.foldersFor.all(req.accountId).find((f) => f.kind === "saved") || stmt.foldersFor.all(req.accountId)[0];
+      if (saved) return { row: saved, peer: buildPeer(saved), allFolders: null };
+      throw new HttpError(400, "Specify a folder for this operation");
+    }
     const allFolders = stmt.foldersFor.all(req.accountId);
     return { row: { id: "all", title: "All Files" }, peer: null, allFolders };
   }

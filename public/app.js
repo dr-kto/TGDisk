@@ -946,7 +946,7 @@ function renderSidebar() {
     list
       .map((f) => {
         const active = !state.currentView && state.currentFolder === f.id;
-        const ic = f.kind === "saved" ? "inbox" : "folder";
+        const ic = f.kind === "saved" ? "inbox" : (f.kind === "group" ? "users" : "folder");
         const count = countForFolder(f.id);
         const kids = state.folders.filter((k) => k.parentId === f.id);
         return `<div class="nav-item ${active ? "active" : ""}" data-folder="${f.id}" style="padding-left:${12 + depth * 16}px" title="${esc(f.title)}">
@@ -1485,7 +1485,15 @@ function renderCardHtml(f) {
     }
     const titleVal = String(f.name || f.url || "").trim();
     const isUrlTitle = /^https?:\/\//i.test(titleVal);
-    return `<div class="card ${sel} ${isYt ? "card-yt" : ""} ${isShorts ? "card-yt-shorts" : ""}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
+    const hasMedia = Boolean(previewMedia);
+    const mediaCls = hasMedia ? "media-card link-media-card" : "";
+    const shortsCls = isShorts ? "is-shorts card-yt-shorts" : "";
+    const ytCls = isYt ? "card-yt" : "";
+    const is169 = isYt && !isShorts;
+    const wide169Cls = is169 ? "is-16-9" : "";
+    const is1x1 = !isShorts && !is169;
+    const sq1x1Cls = is1x1 ? "is-1x1" : "";
+    return `<div class="card ${sel} ${mediaCls} ${ytCls} ${shortsCls} ${wide169Cls} ${sq1x1Cls}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
       ${previewMedia}
@@ -1521,12 +1529,38 @@ function renderCardHtml(f) {
   }
 
   if (f.kind === "image" || f.kind === "video") {
-    const durBadge = f.kind === "video" ? `<span class="video-dur-badge">${icon("play", { size: 10 })}${f.duration ? ` ${fmtDur(f.duration)}` : ""}</span>` : "";
-    return `<div class="card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
+    const isVideoFile = f.kind === "video";
+    const isShorts = Boolean(
+      f.isShorts ||
+      (isVideoFile && f.width && f.height && (f.height / f.width) >= 1.25) ||
+      (!isVideoFile && f.width && f.height && (f.height / f.width) >= 1.25)
+    );
+    const is169 = Boolean(
+      !isShorts && (
+        (isVideoFile && ((f.width && f.height && (f.width / f.height) >= 1.3) || (!f.width || !f.height) || (f.width >= f.height))) ||
+        (!isVideoFile && f.width && f.height && (f.width / f.height) >= 1.35)
+      )
+    );
+    const is1x1 = Boolean(!isShorts && !is169);
+    const durBadge = isVideoFile ? `<span class="video-dur-badge">${icon("play", { size: 10 })}${f.duration ? ` ${fmtDur(f.duration)}` : ""}</span>` : "";
+    const rawSrc = authUrl(f.rawUrl || `/api/files/${f.id}/raw?folder=${folderQuery}`);
+    const videoMediaInner = isVideoFile
+      ? `
+        <img class="card-media-img" src="${esc(thumbSrc)}" alt="" loading="lazy" onerror="this.style.display='none'; const v=this.nextElementSibling; if(v){v.style.display='block';v.currentTime=0.001;}" />
+        <video class="card-media-video" src="${esc(rawSrc)}#t=0.001" preload="metadata" muted playsinline style="${f.hasThumb ? 'display:none' : 'display:block'}" onloadedmetadata="this.currentTime=0.001; if(!${Boolean(f.width && f.height)}){const c=this.closest('.card');if(c&&this.videoWidth&&this.videoHeight){const r=this.videoHeight/this.videoWidth;if(r>=1.25){c.classList.remove('is-16-9','is-1x1');c.classList.add('is-shorts');}else{c.classList.remove('is-shorts','is-1x1');c.classList.add('is-16-9');}}}"></video>
+      `
+      : `
+        <img class="card-media-img" src="${esc(thumbSrc)}" alt="" loading="lazy" onload="if(!${Boolean(f.width && f.height)}){const c=this.closest('.card');if(c&&this.naturalWidth&&this.naturalHeight){const r=this.naturalHeight/this.naturalWidth;if(r>=1.25){c.classList.remove('is-16-9','is-1x1');c.classList.add('is-shorts');}else if(r<=0.75){c.classList.remove('is-shorts','is-1x1');c.classList.add('is-16-9');}else{c.classList.remove('is-shorts','is-16-9');c.classList.add('is-1x1');}}}" onerror="this.style.display='none'" />
+      `;
+
+    const ratioCls = isShorts ? "is-shorts" : (is169 ? "is-16-9" : "is-1x1");
+    const aspectStyle = (f.width && f.height && !isShorts && !is169 && !is1x1) ? `aspect-ratio:${f.width}/${f.height};` : "";
+
+    return `<div class="card media-card ${ratioCls} ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}" style="${aspectStyle}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
       <div class="card-media-wrap">
-        <img src="${esc(thumbSrc)}" alt="" loading="lazy" onerror="this.style.display='none'" />
+        ${videoMediaInner}
         ${durBadge}
       </div>
       <div class="card-body">
@@ -1554,7 +1588,7 @@ function renderListRowHtml(f) {
   const sel = state.selected.has(String(f.id)) ? "selected" : "";
   const titleText = f.caption || f.name;
   const sortLetter = String(titleText || "#").trim().charAt(0).toUpperCase();
-  const folderQuery = f.folderId || state.currentFolder;
+  const folderQuery = f.folderId || (state.currentFolder !== "all" ? state.currentFolder : (state.folders[0]?.id || "all"));
   const thumbSrc = authUrl(f.thumbUrl || `/api/files/${f.id}/thumb?folder=${folderQuery}`);
   const ytId = f.kind === "link" ? extractYouTubeId(f.url) : null;
   const ytThumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
@@ -2743,41 +2777,88 @@ async function newFolder(parentId) {
 window.newFolder = newFolder;
 
 async function importChatModal() {
-  const modal = el(`<div class="modal-bg"><div class="modal card-modal">
-    <div class="head"><div class="t">${icon("inbox", { size: 17 })} Import Telegram chat</div><button type="button" class="icon-btn" onclick="this.closest('.modal-bg').remove()">${icon("x", { size: 18 })}</button></div>
+  let activeTab = "all";
+  let searchQuery = "";
+  let chats = [];
+
+  const modal = el(`<div class="modal-bg"><div class="modal card-modal" style="max-width:540px">
+    <div class="head">
+      <div class="t">${icon("inbox", { size: 17 })} Import Telegram chat</div>
+      <button type="button" class="icon-btn" onclick="this.closest('.modal-bg').remove()">${icon("x", { size: 18 })}</button>
+    </div>
     <div class="body">
-      <div class="field"><div class="input-wrap">${icon("search", { size: 15, cls: "lead" })}<input id="impSearch" placeholder="Filter channels or groups…" /></div></div>
-      <div id="impList" style="max-height:320px;overflow-y:auto"><div class="center-load" style="min-height:110px"><div class="spinner"></div></div></div>
+      <div class="field" style="margin-bottom:12px">
+        <div class="input-wrap">${icon("search", { size: 15, cls: "lead" })}<input id="impSearch" placeholder="Search groups or channels by name or @username…" /></div>
+      </div>
+      <div class="seg-btn-wrap" id="impTypeFilter" style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" class="seg-btn active" data-filter="all" style="flex:1">All</button>
+        <button type="button" class="seg-btn" data-filter="group" style="flex:1">${icon("users", { size: 13 })} Groups</button>
+        <button type="button" class="seg-btn" data-filter="channel" style="flex:1">${icon("folder", { size: 13 })} Channels</button>
+      </div>
+      <div id="impList" style="max-height:340px;overflow-y:auto">
+        <div class="center-load" style="min-height:110px"><div class="spinner"></div></div>
+      </div>
     </div>
   </div></div>`);
   document.body.appendChild(modal);
-  let chats = [];
-  const renderList = (q = "") => {
+
+  const updateTabCounts = () => {
+    const allBtn = modal.querySelector('#impTypeFilter [data-filter="all"]');
+    const grpBtn = modal.querySelector('#impTypeFilter [data-filter="group"]');
+    const chnBtn = modal.querySelector('#impTypeFilter [data-filter="channel"]');
+    const grpCount = chats.filter((c) => c.type === "group").length;
+    const chnCount = chats.filter((c) => c.type === "channel").length;
+    if (allBtn) allBtn.textContent = `All (${chats.length})`;
+    if (grpBtn) grpBtn.innerHTML = `${icon("users", { size: 13 })} Groups (${grpCount})`;
+    if (chnBtn) chnBtn.innerHTML = `${icon("folder", { size: 13 })} Channels (${chnCount})`;
+  };
+
+  const renderList = () => {
     const wrap = modal.querySelector("#impList");
-    const filtered = q ? chats.filter((c) => (c.title || "").toLowerCase().includes(q.toLowerCase())) : chats;
+    let filtered = chats;
+    if (activeTab !== "all") {
+      filtered = filtered.filter((c) => c.type === activeTab);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (c) => (c.title || "").toLowerCase().includes(q) || (c.username || "").toLowerCase().includes(q)
+      );
+    }
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="muted center" style="padding:24px 0">No Telegram channels or groups found</div>`;
+      wrap.innerHTML = `<div class="muted center" style="padding:28px 0">No ${activeTab === "group" ? "groups" : (activeTab === "channel" ? "channels" : "chats")} found</div>`;
       return;
     }
     wrap.innerHTML = `<div class="kv-list">${filtered
       .map(
         (c, i) => `<div class="kv-row" style="cursor:pointer" data-imp-idx="${i}">
-          <div class="kv-ic">${icon(c.type === "channel" ? "folder" : "users", { size: 16 })}</div>
+          <div class="kv-ic">${icon(c.type === "group" ? "users" : "folder", { size: 16 })}</div>
           <div class="info">
             <div class="t">${esc(c.title)}</div>
-            <div class="s">${esc(c.type)}${c.username ? " · @" + esc(c.username) : ""}</div>
+            <div class="s" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span class="tag ${c.type === "group" ? "tag-group" : "tag-channel"}">${esc(c.type === "group" ? "Group" : "Channel")}</span>
+              ${c.participantsCount ? `<span>· ${c.participantsCount} members</span>` : ""}
+              ${c.username ? `<span>· @${esc(c.username)}</span>` : ""}
+            </div>
           </div>
           <button type="button" class="btn-2 sm">Import</button>
         </div>`
       )
       .join("")}</div>`;
+
     $$("[data-imp-idx]", wrap).forEach((row) => {
       row.onclick = async () => {
         const c = filtered[Number(row.dataset.impIdx)];
         try {
           const r = await api("/api/folders/import", {
             method: "POST",
-            body: JSON.stringify({ channelId: c.id, accessHash: c.accessHash, title: c.title, type: c.type }),
+            body: JSON.stringify({
+              channelId: c.id,
+              accessHash: c.accessHash,
+              title: c.title,
+              type: c.type,
+              peerKind: c.peerKind,
+            }),
           });
           modal.remove();
           await loadFolders();
@@ -2789,10 +2870,26 @@ async function importChatModal() {
       };
     });
   };
-  modal.querySelector("#impSearch").oninput = (e) => renderList(e.target.value.trim());
+
+  const filterBtns = $$("#impTypeFilter .seg-btn", modal);
+  filterBtns.forEach((btn) => {
+    btn.onclick = () => {
+      filterBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeTab = btn.dataset.filter;
+      renderList();
+    };
+  });
+
+  modal.querySelector("#impSearch").oninput = (e) => {
+    searchQuery = e.target.value.trim();
+    renderList();
+  };
+
   try {
     const r = await api("/api/chats");
     chats = r.chats || [];
+    updateTabCounts();
     renderList();
   } catch (err) {
     modal.querySelector("#impList").innerHTML = `<div class="err">${esc(err.message)}</div>`;

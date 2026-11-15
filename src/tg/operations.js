@@ -651,11 +651,30 @@ export async function streamThumb(client, msg, res, cacheKey) {
 
   const tmp = path.join(os.tmpdir(), `tgd-thumb-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`);
   try {
-    try {
-      await client.downloadMedia(target, { outputFile: tmp, thumb: 0 });
-    } catch {
-      await client.downloadMedia(target, { outputFile: tmp });
+    const doc = msg?.media?.document;
+    if (doc && Array.isArray(doc.thumbs) && doc.thumbs.length) {
+      const validThumbs = doc.thumbs.filter((t) => !(t instanceof Api.PhotoSizeEmpty));
+      if (validThumbs.length) {
+        let bestThumb = validThumbs[validThumbs.length - 1];
+        for (const t of validThumbs) {
+          if ((t.w && bestThumb.w && t.w > bestThumb.w) || (t instanceof Api.PhotoSizeProgressive)) {
+            bestThumb = t;
+          }
+        }
+        await client.downloadMedia(msg, { outputFile: tmp, thumb: bestThumb });
+      }
+    } else if (msg?.media instanceof Api.MessageMediaPhoto || (isWebPage && target)) {
+      try {
+        await client.downloadMedia(target, { outputFile: tmp, thumb: 0 });
+      } catch {
+        await client.downloadMedia(target, { outputFile: tmp });
+      }
+    } else {
+      try {
+        await client.downloadMedia(target, { outputFile: tmp, thumb: 0 });
+      } catch {}
     }
+
     if (fs.existsSync(tmp) && fs.statSync(tmp).size > 0) {
       if (cacheKey) {
         const cachePath = thumbCachePath(cacheKey);
@@ -797,29 +816,72 @@ function extractCreatedChat(updates) {
 }
 
 export async function listDialogs(client) {
-  const res = await client.invoke(
-    new Api.messages.GetDialogs({ offsetPeer: new Api.InputPeerEmpty(), limit: 100, hash: 0n })
-  );
   const out = [];
-  const chats = res.chats || [];
-  for (const c of chats) {
-    if (c instanceof Api.Channel) {
-      out.push({
-        id: String(c.id),
-        accessHash: String(c.accessHash),
-        title: c.title || "Channel",
-        type: "channel",
-        username: c.username || null,
-      });
-    } else if (c instanceof Api.Chat) {
-      out.push({
-        id: String(c.id),
-        accessHash: "0",
-        title: c.title || "Chat",
-        type: "chat",
-        username: null,
-      });
+  const seenIds = new Set();
+  let offsetDate = 0;
+  let offsetId = 0;
+  let offsetPeer = new Api.InputPeerEmpty();
+
+  // Paginate through up to 3 chunks (up to 300 dialogs) to ensure all groups and channels are discovered
+  for (let page = 0; page < 3; page++) {
+    try {
+      const res = await client.invoke(
+        new Api.messages.GetDialogs({
+          offsetDate,
+          offsetId,
+          offsetPeer,
+          limit: 100,
+          hash: 0n,
+        })
+      );
+      const chats = res?.chats || [];
+      for (const c of chats) {
+        if (!c || c.left || c.kicked || c.deactivated) continue;
+        const id = String(c.id);
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        if (c instanceof Api.Channel) {
+          const isGroup = Boolean(c.megagroup || c.gigagroup || !c.broadcast);
+          out.push({
+            id,
+            accessHash: String(c.accessHash || "0"),
+            title: c.title || (isGroup ? "Group" : "Channel"),
+            type: isGroup ? "group" : "channel",
+            peerKind: "channel",
+            username: c.username || null,
+            participantsCount: typeof c.participantsCount === "number" ? c.participantsCount : null,
+          });
+        } else if (c instanceof Api.Chat) {
+          out.push({
+            id,
+            accessHash: "0",
+            title: c.title || "Group",
+            type: "group",
+            peerKind: "chat",
+            username: null,
+            participantsCount: typeof c.participantsCount === "number" ? c.participantsCount : null,
+          });
+        }
+      }
+
+      const dialogs = res?.dialogs || [];
+      if (!dialogs.length || dialogs.length < 100) break;
+      const lastDialog = dialogs[dialogs.length - 1];
+      const lastMsg = (res?.messages || []).find((m) => m && m.id === lastDialog.topMessage);
+      if (!lastMsg) break;
+      offsetDate = lastMsg.date || 0;
+      offsetId = lastMsg.id || 0;
+      try {
+        offsetPeer = client._entityCache?.get(lastDialog.peer) || new Api.InputPeerEmpty();
+      } catch {
+        break;
+      }
+    } catch {
+      break;
     }
   }
+
+  out.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
   return out;
 }
