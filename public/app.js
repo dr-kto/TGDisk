@@ -1431,6 +1431,20 @@ function listRowActionsHtml(f) {
   </div>`;
 }
 
+function getExtColorClass(ext) {
+  ext = String(ext || "").toLowerCase().replace(/^\./, "");
+  if (["pdf"].includes(ext)) return "ext-c-red";
+  if (["doc", "docx", "pages", "odt", "rtf"].includes(ext)) return "ext-c-blue";
+  if (["xls", "xlsx", "numbers", "csv", "tsv"].includes(ext)) return "ext-c-green";
+  if (["ppt", "pptx", "key", "odp"].includes(ext)) return "ext-c-orange";
+  if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso"].includes(ext)) return "ext-c-amber";
+  if (["apk", "exe", "msi", "dmg", "pkg", "deb"].includes(ext)) return "ext-c-purple";
+  if (["js", "ts", "jsx", "tsx", "py", "html", "css", "json", "xml", "c", "cpp", "rs", "go", "java"].includes(ext)) return "ext-c-cyan";
+  if (["txt", "md", "log", "ini", "cfg"].includes(ext)) return "ext-c-slate";
+  return "ext-c-accent";
+}
+
+
 function renderCardHtml(f) {
   const sel = state.selected.has(String(f.id)) ? "selected" : "";
   const titleText = f.caption || f.name;
@@ -1472,9 +1486,11 @@ function renderCardHtml(f) {
         <div class="card-media-wrap yt-thumb-wrap ${isShorts ? "is-shorts" : ""}">
           <img src="${ytThumb}" alt="${esc(f.name || (isShorts ? "YouTube Short" : "YouTube video"))}" loading="lazy" onerror="if(this.src!=='${fallbackThumb}')this.src='${fallbackThumb}'" />
           <div class="yt-play-btn-card">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
           </div>
-          <span class="yt-pill-badge ${isShorts ? "yt-shorts-badge" : ""}">${icon("play", { size: 10 })} ${isShorts ? "Shorts" : "YouTube"}</span>
+          <div class="card-media-badge-top">
+            <span class="media-pill-badge ${isShorts ? "pill-yt-shorts" : ""}">${icon("play", { size: 10 })} ${isShorts ? "Shorts" : "YouTube"}</span>
+          </div>
         </div>
       `;
     } else {
@@ -1486,22 +1502,41 @@ function renderCardHtml(f) {
     const titleVal = String(f.name || f.url || "").trim();
     const isUrlTitle = /^https?:\/\//i.test(titleVal);
     const hasMedia = Boolean(previewMedia);
-    const mediaCls = hasMedia ? "media-card link-media-card" : "";
-    const shortsCls = isShorts ? "is-shorts card-yt-shorts" : "";
-    const ytCls = isYt ? "card-yt" : "";
-    const is169 = isYt && !isShorts;
-    const wide169Cls = is169 ? "is-16-9" : "";
-    const is1x1 = !isShorts && !is169;
-    const sq1x1Cls = is1x1 ? "is-1x1" : "";
-    return `<div class="card ${sel} ${mediaCls} ${ytCls} ${shortsCls} ${wide169Cls} ${sq1x1Cls}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
+
+    if (hasMedia) {
+      const shortsCls = isShorts ? "is-shorts card-yt-shorts" : "";
+      const ytCls = isYt ? "card-yt" : "";
+      const is169 = isYt && !isShorts;
+      const wide169Cls = is169 ? "is-16-9" : "";
+      return `<div class="card visual-card link-visual-card ${ytCls} ${shortsCls} ${wide169Cls} ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
+        <div class="card-sel">${icon("check", { size: 12 })}</div>
+        ${cardActionsHtml(f)}${moreMobile}
+        ${previewMedia}
+        <div class="card-body">
+          <div class="link-domain-row">${icon(isYt ? "play" : "globe", { size: 12 })}<span>${esc(f.domain || (isShorts ? "YouTube Shorts" : (isYt ? "youtube.com" : "link")))}</span></div>
+          <div class="card-title ${isUrlTitle ? "is-url" : ""}" title="${esc(titleVal)}">${esc(titleVal)}</div>
+          ${f.previewDescription ? `<div class="link-desc">${esc(f.previewDescription)}</div>` : ""}
+          <div class="card-meta">
+            <span class="ext-pill-sm ext-c-red">${isShorts ? "SHORTS" : "VIDEO"}</span>
+            <span>${fmtDate(f.date)}</span>
+            ${senderChip}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="card doc-card link-card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
-      ${previewMedia}
-      <div class="card-body">
-        <div class="link-domain-row">${icon(isYt ? "play" : "globe", { size: 12 })}<span>${esc(f.domain || (isShorts ? "YouTube Shorts" : (isYt ? "youtube.com" : "link")))}</span></div>
-        <div class="card-title ${isUrlTitle ? "is-url" : ""}" title="${esc(titleVal)}">${esc(titleVal)}</div>
-        ${f.previewDescription ? `<div class="link-desc">${esc(f.previewDescription)}</div>` : ""}
-        <div class="card-meta"><span>${fmtDate(f.date)}</span>${senderChip}</div>
+      <div class="doc-card-inner">
+        <div class="doc-art ext-c-cyan">
+          <div class="doc-art-fallback">${icon("globe", { size: 22 })}<span class="doc-badge">LINK</span></div>
+        </div>
+        <div class="doc-info">
+          <div class="link-domain-row" style="margin-bottom:2px">${icon("globe", { size: 11 })}<span>${esc(f.domain || "link")}</span></div>
+          <div class="card-title ${isUrlTitle ? "is-url" : ""}" title="${esc(titleVal)}">${esc(titleVal)}</div>
+          <div class="card-meta"><span>${fmtDate(f.date)}</span>${senderChip}</div>
+        </div>
       </div>
     </div>`;
   }
@@ -1510,14 +1545,20 @@ function renderCardHtml(f) {
     const playing = String(audioMgr.id) === String(f.id) && audioMgr.playing;
     const dur = Math.floor((String(audioMgr.id) === String(f.id) && audioMgr.duration) || f.duration || 0);
     const cur = String(audioMgr.id) === String(f.id) ? Math.floor(audioMgr.currentTime) : 0;
-    return `<div class="card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}" data-audio-dur="${dur}">
+    return `<div class="card audio-card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}" data-audio-dur="${dur}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
       <div class="audio-card-head">
         <div class="audio-art">${f.hasThumb ? `<img src="${esc(thumbSrc)}" alt="" onerror="this.remove()" />` : icon("music", { size: 20 })}</div>
-        <div style="min-width:0;flex:1">
-          <div class="card-title" style="-webkit-line-clamp:1;line-clamp:1">${esc(f.name)}</div>
-          <div class="card-meta" style="margin-top:2px">${esc(f.artist || fmtSize(f.size))}${senderChip}</div>
+        <div class="audio-info">
+          <div class="card-title" title="${esc(f.name)}">${esc(f.name)}</div>
+          <div class="card-meta">
+            <span class="ext-pill-sm ext-c-purple">AUDIO</span>
+            <span>${esc(f.artist || fmtSize(f.size))}</span>
+            <span class="meta-dot">·</span>
+            <span>${fmtDate(f.date)}</span>
+            ${senderChip}
+          </div>
         </div>
       </div>
       <div class="audio-player-bar" onclick="event.stopPropagation()">
@@ -1542,12 +1583,40 @@ function renderCardHtml(f) {
       )
     );
     const is1x1 = Boolean(!isShorts && !is169);
-    const durBadge = isVideoFile ? `<span class="video-dur-badge">${icon("play", { size: 10 })}${f.duration ? ` ${fmtDur(f.duration)}` : ""}</span>` : "";
     const rawSrc = authUrl(f.rawUrl || `/api/files/${f.id}/raw?folder=${folderQuery}`);
+    const ext = (f.ext || (isVideoFile ? "mp4" : "jpg")).toLowerCase().replace(/^\./, "").toUpperCase();
+
+    // Resolution calculation
+    let resBadge = "";
+    if (f.width && f.height) {
+      if (f.width >= 3800 || f.height >= 3800) resBadge = "4K";
+      else if (f.width >= 1900 || f.height >= 1900) resBadge = "FHD";
+      else if (f.width >= 1200 || f.height >= 1200) resBadge = "HD";
+      else if (f.width <= 720 && f.height <= 720) resBadge = `${f.width}×${f.height}`;
+    }
+    const resPill = resBadge ? `<span class="meta-pill meta-res" title="${f.width}×${f.height}">${resBadge}</span>` : "";
+    const extPill = `<span class="meta-pill ${isVideoFile ? 'pill-video' : 'pill-photo'}">${esc(ext)}</span>`;
+
+    // Overlaid visual badges on the preview
+    const topBadges = [];
+    if (isVideoFile && (resBadge === "4K" || resBadge === "FHD" || resBadge === "HD")) {
+      topBadges.push(`<span class="media-pill-badge ${resBadge === '4K' ? 'pill-4k' : 'pill-hd'}">${resBadge}</span>`);
+    } else if (!isVideoFile && ext === "GIF") {
+      topBadges.push(`<span class="media-pill-badge" style="background:#8b5cf6;border:none">GIF</span>`);
+    } else if (!isVideoFile && resBadge === "4K") {
+      topBadges.push(`<span class="media-pill-badge pill-4k">4K</span>`);
+    }
+    const topBadgesHtml = topBadges.length ? `<div class="card-media-badge-top">${topBadges.join("")}</div>` : "";
+
+    const durBadge = (isVideoFile && f.duration)
+      ? `<span class="video-dur-pill">${icon("play", { size: 10 })} ${fmtDur(f.duration)}</span>`
+      : "";
+
     const videoMediaInner = isVideoFile
       ? `
         <img class="card-media-img" src="${esc(thumbSrc)}" alt="" loading="lazy" onerror="this.style.display='none'; const v=this.nextElementSibling; if(v){v.style.display='block';v.currentTime=0.001;}" />
         <video class="card-media-video" src="${esc(rawSrc)}#t=0.001" preload="metadata" muted playsinline style="${f.hasThumb ? 'display:none' : 'display:block'}" onloadedmetadata="this.currentTime=0.001; if(!${Boolean(f.width && f.height)}){const c=this.closest('.card');if(c&&this.videoWidth&&this.videoHeight){const r=this.videoHeight/this.videoWidth;if(r>=1.25){c.classList.remove('is-16-9','is-1x1');c.classList.add('is-shorts');}else{c.classList.remove('is-shorts','is-1x1');c.classList.add('is-16-9');}}}"></video>
+        <div class="video-play-center">${icon("play", { size: 22 })}</div>
       `
       : `
         <img class="card-media-img" src="${esc(thumbSrc)}" alt="" loading="lazy" onload="if(!${Boolean(f.width && f.height)}){const c=this.closest('.card');if(c&&this.naturalWidth&&this.naturalHeight){const r=this.naturalHeight/this.naturalWidth;if(r>=1.25){c.classList.remove('is-16-9','is-1x1');c.classList.add('is-shorts');}else if(r<=0.75){c.classList.remove('is-shorts','is-1x1');c.classList.add('is-16-9');}else{c.classList.remove('is-shorts','is-16-9');c.classList.add('is-1x1');}}}" onerror="this.style.display='none'" />
@@ -1556,30 +1625,53 @@ function renderCardHtml(f) {
     const ratioCls = isShorts ? "is-shorts" : (is169 ? "is-16-9" : "is-1x1");
     const aspectStyle = (f.width && f.height && !isShorts && !is169 && !is1x1) ? `aspect-ratio:${f.width}/${f.height};` : "";
 
-    return `<div class="card media-card ${ratioCls} ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}" style="${aspectStyle}">
+    return `<div class="card visual-card ${isVideoFile ? 'video-card' : 'photo-card'} ${ratioCls} ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
       <div class="card-sel">${icon("check", { size: 12 })}</div>
       ${cardActionsHtml(f)}${moreMobile}
-      <div class="card-media-wrap">
+      <div class="card-media-wrap" style="${aspectStyle}">
         ${videoMediaInner}
+        ${topBadgesHtml}
         ${durBadge}
       </div>
       <div class="card-body">
-        <div class="card-title">${esc(titleText)}</div>
-        <div class="card-meta"><span>${fmtSize(f.size)}</span><span>·</span><span>${fmtDate(f.date)}</span>${senderChip}${mpTag}</div>
+        <div class="card-title" title="${esc(titleText)}">${esc(titleText)}</div>
+        <div class="card-meta">
+          ${extPill}
+          ${resPill}
+          <span>${fmtSize(f.size)}</span>
+          <span class="meta-dot">·</span>
+          <span>${fmtDate(f.date)}</span>
+          ${senderChip}
+          ${mpTag}
+        </div>
       </div>
     </div>`;
   }
 
-  return `<div class="card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
+  const ext = (f.ext || "").toLowerCase().replace(/^\./, "");
+  const extBadge = (ext || f.kind || "file").toUpperCase().slice(0, 5);
+  const extColorCls = getExtColorClass(ext);
+
+  return `<div class="card doc-card ${sel}" data-id="${f.id}" data-letter="${esc(sortLetter)}">
     <div class="card-sel">${icon("check", { size: 12 })}</div>
     ${cardActionsHtml(f)}${moreMobile}
-    <div class="doc-hero">
-      ${fileIcon(f.kind, 34)}
-      <span class="ext-pill">${esc((f.ext || "FILE").toUpperCase())}</span>
-    </div>
-    <div class="card-body">
-      <div class="card-title">${esc(titleText)}</div>
-      <div class="card-meta"><span>${fmtSize(f.size)}</span><span>·</span><span>${fmtDate(f.date)}</span>${senderChip}${mpTag}</div>
+    <div class="doc-card-inner">
+      <div class="doc-art ${extColorCls}">
+        ${f.hasThumb
+          ? `<img class="doc-thumb" src="${esc(thumbSrc)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="doc-art-fallback" style="display:none">${fileIcon(f.kind, 22)}<span class="doc-badge">${esc(extBadge)}</span></div>`
+          : `<div class="doc-art-fallback">${fileIcon(f.kind, 22)}<span class="doc-badge">${esc(extBadge)}</span></div>`}
+      </div>
+      <div class="doc-info">
+        <div class="card-title" title="${esc(titleText)}">${esc(titleText)}</div>
+        <div class="card-meta">
+          <span class="ext-pill-sm ${extColorCls}">${esc(extBadge)}</span>
+          <span>${fmtSize(f.size)}</span>
+          <span class="meta-dot">·</span>
+          <span>${fmtDate(f.date)}</span>
+          ${senderChip}
+          ${mpTag}
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -1627,8 +1719,8 @@ function getColumnCount() {
 
 function estimateCardWeight(f) {
   if (f.kind === "image" || f.kind === "video") {
-    const ratio = f.width && f.height ? f.height / f.width : 1;
-    return Math.min(1.6, Math.max(0.6, ratio)) * 180 + 68;
+    const ratio = f.width && f.height ? f.height / f.width : 0.75;
+    return Math.min(1.5, Math.max(0.55, ratio)) * 200 + 74;
   }
   if (f.kind === "link") {
     if (extractYouTubeId(f.url)) {
@@ -1636,11 +1728,11 @@ function estimateCardWeight(f) {
       return isShorts ? 360 : 210;
     }
     if (f.thumbUrl || f.hasThumb) return 220;
-    return 130;
+    return 74;
   }
   if (f.kind === "note") return 150;
-  if (f.kind === "audio") return 130;
-  return 165;
+  if (f.kind === "audio") return 105;
+  return 74;
 }
 
 function renderMasonryHtml(items) {
